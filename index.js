@@ -1,5 +1,4 @@
 let input = [];
-let currentNumber = "";
 let isAnswerCancelable = false;
 
 const calculatorContainer = document.querySelector(".calculator-container");
@@ -11,21 +10,13 @@ const currentInput = display.querySelector(".current-input");
 const buttons = calculatorContainer.querySelector(".buttons");
 const buttonList = buttons.querySelectorAll("button");
 
-function add(a, b) {
-    return a + b;
-}
+function add(a, b) {return a + b;}
 
-function subtract(a, b) {
-    return a - b;
-}
+function subtract(a, b) {return a - b;}
 
-function multiply(a, b) {
-    return a * b;
-}
+function multiply(a, b) {return a * b;}
 
-function divide(a, b) {
-    return a / b;
-}
+function divide(a, b) {return a / b;}
 
 function operate(a, op, b) {
     switch (op) {
@@ -41,138 +32,242 @@ function operate(a, op, b) {
 }
 
 function allClear() {
-    input.length = 0;
-    currentNumber = "";
+    clearInput();
     isAnswerCancelable = false;
 
     updatePreviousInput("");
-    updateCurrentInput("");
+    updateCurrentInput();
 }
 
 function clear() {
     if (isAnswerCancelable) {
-        updatePreviousInput(`${getPreviousInput()} = ${currentNumber}`);
+        updatePreviousInput(`${getPreviousInput()} = ${getCurrentNumber()}`);
         isAnswerCancelable = false;
     }
 
-    if (currentNumber.length === 0) {
+    if (getCurrentNumber().length <= 1 || getLastInput("Infinity")) {
         if (input.length === 0) return;
 
-        const lastElement = input[input.length - 1];
-
-        if (lastElement.length === 1) input.pop();
-        else input[input.length - 1] = lastElement.slice(0, -1);
-
+        input.pop();
     } else {
-        currentNumber = currentNumber.slice(0, -1);
+        setCurrentNumber(getCurrentNumber().slice(0, -1));
     } 
 
-    updateCurrentInput(getCurrentInput().slice(0, -1).trimEnd());
+    updateCurrentInput();
 }
 
-function updateCurrentInput(content) {
-    currentInput.textContent = content;
+function updateCurrentInput() {
+    currentInput.textContent = input.join(" ");
 }
 
-function getCurrentInput() {
-    return currentInput.textContent;
+function getCurrentInput() {return currentInput.textContent;}
+
+function updatePreviousInput(content) {previousInput.textContent = content;}
+
+function getPreviousInput() {return previousInput.textContent;}
+
+function getCurrentNumber() { 
+    const lastElement = getLastInput();
+
+    if (isNumber(lastElement)) return lastElement;
+    else return "";
+}   
+
+function setCurrentNumber(str = "") {
+    const lastElement = getLastInput();
+    
+    if (str === "") {
+        if (isNumber(lastElement)) {
+            input.pop();
+        } 
+        return;
+    } 
+
+    if (isNumber(lastElement)) {
+        setLastInput(str);
+    } else {
+        input.push(str);
+    }
 }
 
-function updatePreviousInput(content) {
-    previousInput.textContent = content;
+function getLastInput() {
+    if (input.length === 0) return "";
+    return input[input.length - 1];
 }
 
-function getPreviousInput() {
-    return previousInput.textContent;
+function setLastInput(str) {
+    if (input.length === 0) input.push(str);
+    else input[input.length - 1] = str;
 }
 
-function getFirstPEMDASIndex() {
-    const multiIndex = input.indexOf("x");
-    const divIndex = input.indexOf("/");
+function clearInput() {
+    input.length = 0;
+}
 
+function getFirstPEMDASSLice(arr) {
 
-    if (multiIndex !== -1 || divIndex !== -1) {
-        if (divIndex === -1) return multiIndex;
-        if (multiIndex === -1) return divIndex;
+    const firstParenthesisIndex = arr.indexOf("(");
+    const lastParenthesisIndex = arr.lastIndexOf(")");
 
-        return multiIndex > divIndex ? divIndex : multiIndex;
+    if (firstParenthesisIndex !== -1) {
+        const parenthesisSlice = arr.slice(firstParenthesisIndex, lastParenthesisIndex + 1);
+        return [parenthesisSlice, firstParenthesisIndex];
     }
 
-    const addIndex = input.indexOf("+");
-    const subIndex = input.indexOf("-");
+    const multiIndex = arr.indexOf("x");
+    const divIndex = arr.indexOf("/");
 
-    if (addIndex === -1) return subIndex;
-    if (subIndex === -1) return addIndex;
+    if (multiIndex !== -1 || divIndex !== -1) {
+        const multiSlice = arr.slice(multiIndex - 1, multiIndex + 2);
+        const divSlice = arr.slice(divIndex - 1, divIndex + 2);
 
-    return subIndex > addIndex ? addIndex : subIndex;
+        if (divIndex === -1) return [multiSlice, multiIndex - 1];
+        if (multiIndex === -1) return [divSlice, divIndex - 1];
+
+        return multiIndex > divIndex ? [divSlice, divIndex - 1] : [multiSlice, multiIndex - 1];
+    }
+
+    const addIndex = arr.indexOf("+");
+    const subIndex = arr.indexOf("-");
+
+    const addSlice = arr.slice(addIndex - 1, addIndex + 2);
+    const subSlice = arr.slice(subIndex - 1, subIndex + 2);
+
+    if (addIndex === -1) return [subSlice, subIndex - 1];
+    if (subIndex === -1) return [addSlice, addIndex - 1];
+
+    return subIndex > addIndex ? [addSlice, addIndex - 1] : [subSlice, subIndex - 1];
+}
+
+function solveEquation(equationArr) {
+
+    while (equationArr.length !== 1) {
+        console.log(equationArr);
+        if (equationArr.length === 3) {
+            return [operate(+equationArr[0], equationArr[1], +equationArr[2]).toString()];
+        }
+
+        const [PEMDASSlice, PEMDASStartIndex] = getFirstPEMDASSLice(equationArr);
+
+        if (PEMDASSlice.includes("(")) {
+            equationArr.splice(PEMDASStartIndex, PEMDASSlice.length, solveEquation(PEMDASSlice.slice(1, -1)));
+            
+            equationArr.forEach((element, index) => {
+                if (index === equationArr.length - 1) return;
+
+                if (isNumber(element) && isNumber(equationArr[index + 1])) {
+                    equationArr.splice(index + 1, 0, "x");
+                }
+            });
+
+        } else {
+            equationArr.splice(PEMDASStartIndex, PEMDASSlice.length, ...solveEquation(PEMDASSlice));
+        }
+    }
+
+    return equationArr;
 }
 
 function calculate() {
-    if (currentNumber === "") return;
-    input.push(currentNumber);
+    if (getCurrentNumber().length === 0 && getLastInput() !== ")") return;
+    if (getCurrentInput().slice(-1) === ".") return;
+    if (!areParenthesisEqual()) return;
 
-    let answer = input[0];
-
-    while (input.length > 1) {
-        const index = getFirstPEMDASIndex();
-
-        answer = operate(+input[index - 1], input[index], +input[index + 1]);
-        input = [...input.slice(0, index - 1), answer, ...input.slice(index + 2)];
-    }
     
-    currentNumber = answer.toString();
+    const [answer] = solveEquation(input);
+
+    const formattedAnswer = ((+answer).toFixed(4) * 1).toString();
+    
+    clearInput()
+    setCurrentNumber(formattedAnswer);
+
     isAnswerCancelable = true;
 
     updatePreviousInput(getCurrentInput());
-    updateCurrentInput(answer);
+    updateCurrentInput();
 
-    input.length = 0;
 }
 
 function isNumber(num) {
     return !isNaN(num);
 }
 
+function areParenthesisEqual() {
+    const obj = input.reduce((obj, element) => {
+        if (!obj[element]) {
+            obj[element] = 0;
+        }
+
+        obj[element]++;
+
+        return obj;
+    }, {})
+
+    return obj["("] === obj[")"];
+
+}
+
 buttonList.forEach(button => {
     button.addEventListener("click", e => {
         const buttonContent = button.textContent; 
 
-        if (isNumber(buttonContent)) {
-            if (isAnswerCancelable) {
-                updatePreviousInput(`${getPreviousInput()} = ${currentNumber}`);
-                updateCurrentInput("");
+        if (isNumber(buttonContent) || buttonContent === ".") {
+            if (buttonContent === "." && (
+                getCurrentNumber().length === 0 || 
+                isAnswerCancelable || 
+                getCurrentNumber().includes(".")
+            )) return;
 
-                currentNumber = "";
+            if (isAnswerCancelable) {
+                updatePreviousInput(`${getPreviousInput()} = ${getCurrentNumber()}`);
+                updateCurrentInput();
+
+                setCurrentNumber();
                 isAnswerCancelable = false;
             }    
 
-            currentNumber += buttonContent;
-
-            updateCurrentInput(getCurrentInput() + buttonContent);
+            setCurrentNumber(getCurrentNumber() + buttonContent);
+            updateCurrentInput();
         
         } else if (buttonContent === "=") {
             calculate();
 
-        } else if (buttonContent === "AC") {
-            allClear();
-
         } else if (buttonContent === "C") {
-            clear();
+            if (input.length === 0) {
+                allClear();
+            } else {
+                clear();
+            }
+
+        } else if (buttonContent === "+/-") {
+            if (getCurrentNumber().length === 0 && getLastInput() !== ")") return;            
+            if (getCurrentInput().slice(-1) === ".") return;
+
+            setCurrentNumber((+getCurrentNumber().slice(0) * -1).toString());
+            updateCurrentInput();
+
+        } else if (buttonContent === "(" || buttonContent === ")") {
+            if (getCurrentInput().slice(-1) === ".") return;
+            if (buttonContent === ")" && areParenthesisEqual()) return;
+
+            input.push(buttonContent);
+            
+            updateCurrentInput();
 
         } else {
-            if (currentNumber.length === 0) return;
+            if (getCurrentNumber().length === 0 && getLastInput() !== ")") return;
+            if (getCurrentInput().slice(-1) === ".") return;
 
             if (isAnswerCancelable) {
-                updatePreviousInput(`${getPreviousInput()} = ${currentNumber}`);
+                updatePreviousInput(`${getPreviousInput()} = ${getCurrentNumber()}`);
                 isAnswerCancelable = false;
             }
 
-            input.push(currentNumber, buttonContent);
-            currentNumber = "";
+            input.push(buttonContent);
 
-            updateCurrentInput(`${getCurrentInput()} ${buttonContent} `);
+            updateCurrentInput();
         }
 
-        console.log(`${input} ${currentNumber}`);
+        console.log(input);
     })
 })
