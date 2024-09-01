@@ -1,5 +1,6 @@
 let input = [];
 let currentNumber = "";
+let isAnswerCancelable = false;
 
 const calculatorContainer = document.querySelector(".calculator-container");
 
@@ -42,14 +43,31 @@ function operate(a, op, b) {
 function allClear() {
     input.length = 0;
     currentNumber = "";
+    isAnswerCancelable = false;
 
+    updatePreviousInput("");
     updateCurrentInput("");
 }
 
 function clear() {
-    currentNumber = "";
-    updateCurrentInput(getCurrentInput().slice(0, -1));
-    input.pop();   
+    if (isAnswerCancelable) {
+        updatePreviousInput(`${getPreviousInput()} = ${currentNumber}`);
+        isAnswerCancelable = false;
+    }
+
+    if (currentNumber.length === 0) {
+        if (input.length === 0) return;
+
+        const lastElement = input[input.length - 1];
+
+        if (lastElement.length === 1) input.pop();
+        else input[input.length - 1] = lastElement.slice(0, -1);
+
+    } else {
+        currentNumber = currentNumber.slice(0, -1);
+    } 
+
+    updateCurrentInput(getCurrentInput().slice(0, -1).trimEnd());
 }
 
 function updateCurrentInput(content) {
@@ -68,52 +86,93 @@ function getPreviousInput() {
     return previousInput.textContent;
 }
 
+function getFirstPEMDASIndex() {
+    const multiIndex = input.indexOf("x");
+    const divIndex = input.indexOf("/");
+
+
+    if (multiIndex !== -1 || divIndex !== -1) {
+        if (divIndex === -1) return multiIndex;
+        if (multiIndex === -1) return divIndex;
+
+        return multiIndex > divIndex ? divIndex : multiIndex;
+    }
+
+    const addIndex = input.indexOf("+");
+    const subIndex = input.indexOf("-");
+
+    if (addIndex === -1) return subIndex;
+    if (subIndex === -1) return addIndex;
+
+    return subIndex > addIndex ? addIndex : subIndex;
+}
+
+function calculate() {
+    if (currentNumber === "") return;
+    input.push(currentNumber);
+
+    let answer = input[0];
+
+    while (input.length > 1) {
+        const index = getFirstPEMDASIndex();
+
+        answer = operate(+input[index - 1], input[index], +input[index + 1]);
+        input = [...input.slice(0, index - 1), answer, ...input.slice(index + 2)];
+    }
+    
+    currentNumber = answer.toString();
+    isAnswerCancelable = true;
+
+    updatePreviousInput(getCurrentInput());
+    updateCurrentInput(answer);
+
+    input.length = 0;
+}
+
+function isNumber(num) {
+    return !isNaN(num);
+}
+
 buttonList.forEach(button => {
     button.addEventListener("click", e => {
         const buttonContent = button.textContent; 
 
-        if (input.length === 0 && getCurrentInput().length !== 0 && currentNumber.length === 0) {
-            updatePreviousInput(`${getPreviousInput()} = ${getCurrentInput()}`);
-            updateCurrentInput("");
-        }
+        if (isNumber(buttonContent)) {
+            if (isAnswerCancelable) {
+                updatePreviousInput(`${getPreviousInput()} = ${currentNumber}`);
+                updateCurrentInput("");
 
-        if (!isNaN(buttonContent)) {
+                currentNumber = "";
+                isAnswerCancelable = false;
+            }    
+
             currentNumber += buttonContent;
+
             updateCurrentInput(getCurrentInput() + buttonContent);
         
         } else if (buttonContent === "=") {
-            if (currentNumber === "") return;
+            calculate();
 
-            input.push(currentNumber);
-            currentNumber = "";
+        } else if (buttonContent === "AC") {
+            allClear();
 
-            let currentOperator = "";
-
-            let output = input.reduce((result, element, index) => {
-                if (index === 0) return result; 
-
-                if (!isNaN(element)) {
-                    let num = operate(result, currentOperator, +element)
-
-                    currentOperator = "";
-                    return num;
-                }
-
-                currentOperator = element;
-                return result;
-
-            }, +input[0]);
-
-            input.length = 0;
-            updatePreviousInput(getCurrentInput());
-            updateCurrentInput(output);
+        } else if (buttonContent === "C") {
+            clear();
 
         } else {
-            input.push(currentNumber);
-            input.push(buttonContent);
-            currentNumber = ""
+            if (currentNumber.length === 0) return;
+
+            if (isAnswerCancelable) {
+                updatePreviousInput(`${getPreviousInput()} = ${currentNumber}`);
+                isAnswerCancelable = false;
+            }
+
+            input.push(currentNumber, buttonContent);
+            currentNumber = "";
 
             updateCurrentInput(`${getCurrentInput()} ${buttonContent} `);
         }
+
+        console.log(`${input} ${currentNumber}`);
     })
 })
